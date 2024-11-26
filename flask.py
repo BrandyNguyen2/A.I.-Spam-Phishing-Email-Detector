@@ -1,32 +1,28 @@
-from flask import Flask, request, jsonify
-import pickle
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score
 
 # Placeholder code from chatgpt spam detection
 
-# Save the trained model and vectorizer
-with open('spam_model.pkl', 'wb') as model_file:
-    pickle.dump(model, model_file)
-with open('vectorizer.pkl', 'wb') as vec_file:
-    pickle.dump(vectorizer, vec_file)
+# Load dataset
+data = pd.read_csv('fraud_email.csv')  # Your CSV with 'text' and 'label' columns
+data['label'] = data['label'].map({'spam': 1, 'ham': 0})
 
-# Load model and vectorizer
-app = Flask(__name__)
-with open('spam_model.pkl', 'rb') as model_file:
-    model = pickle.load(model_file)
-with open('vectorizer.pkl', 'rb') as vec_file:
-    vectorizer = pickle.load(vec_file)
+# Text preprocessing
+vectorizer = CountVectorizer(stop_words='english')
+X = vectorizer.fit_transform(data['text'])
+y = data['label']
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    data = request.get_json()
-    email_text = data.get('email_text', '')
+# Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # Preprocess and predict
-    email_vector = vectorizer.transform([email_text])
-    prediction = model.predict(email_vector)
-    label = 'spam' if prediction[0] == 1 else 'ham'
+# Train Naive Bayes classifier
+model = MultinomialNB()
+model.fit(X_train, y_train)
 
-    return jsonify({'label': label})
-
-if __name__ == '__main__':
-    app.run(debug=True)
+# Evaluate the model
+predictions = model.predict(X_test)
+accuracy = accuracy_score(y_test, predictions)
+print(f'Model accuracy: {accuracy:.2f}')
