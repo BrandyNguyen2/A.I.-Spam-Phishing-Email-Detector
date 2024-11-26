@@ -4,7 +4,7 @@ import pickle
 # Placeholder code from chatgpt spam detection
 
 # Save the trained model and vectorizer
-with open('spam_model.pkl', 'wb') as model_file:
+with open('fraud_email.csv', 'wb') as model_file:
     pickle.dump(model, model_file)
 with open('vectorizer.pkl', 'wb') as vec_file:
     pickle.dump(vectorizer, vec_file)

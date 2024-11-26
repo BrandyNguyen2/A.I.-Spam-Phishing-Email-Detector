@@ -1,0 +1,3 @@
+email_text,label
+"This is a spam email",spam
+"This is a ham email",ham
