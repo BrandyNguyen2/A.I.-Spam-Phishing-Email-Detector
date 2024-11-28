@@ -13,8 +13,14 @@ try:
     if data.empty:
         raise ValueError("The CSV file is empty")
 
+    # Print the columns to verify
+    print("Columns in the CSV file:", data.columns)
+
     # Step 2: Preprocess the data
     # Assuming the CSV has columns 'email_text' and 'label'
+    if 'email_text' not in data.columns or 'label' not in data.columns:
+        raise ValueError("Required columns 'email_text' or 'label' are missing in the CSV file")
+
     X = data['email_text']
     y = data['label']
 
@@ -41,5 +47,7 @@ except pd.errors.EmptyDataError:
     print("Error: The CSV file is empty or does not contain any columns to parse.")
 except FileNotFoundError:
     print("Error: The CSV file was not found.")
+except ValueError as ve:
+    print(f"ValueError: {ve}")
 except Exception as e:
     print(f"An error occurred: {e}")
