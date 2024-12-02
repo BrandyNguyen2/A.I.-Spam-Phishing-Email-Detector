@@ -1,4 +1,5 @@
-from model_training import Flask, request, jsonify
+import model_training 
+from flask import Flask, request, jsonify
 import pickle
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
