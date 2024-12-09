@@ -54,7 +54,8 @@ def test_custom_input(model, vectorizer):
         prediction = model.predict(input_vectorized)
         if prediction[0] == 1:
             print("Prediciton: Not Spam")
-        print("Prediction: Spam")
+        else:
+            print("Prediction: Spam")
 
 # Call the function to test custom input
 test_custom_input(model, vectorizer)
