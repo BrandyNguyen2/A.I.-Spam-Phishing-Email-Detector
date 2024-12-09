@@ -1,14 +1,8 @@
 import os
 import pickle
-import base64
-import json
 from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
 from flask import Flask, request, jsonify
 
 import model_training as mt
