@@ -1,62 +1,128 @@
-import model_training 
-from flask import Flask, request, jsonify
+import os
 import pickle
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.metrics import accuracy_score
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from flask import Flask, request, jsonify, render_template
 
-# Load dataset
-data_path = 'fraud_email_.csv'
-data = pd.read_csv(data_path)
+import model_training as mt
 
-# Preprocess the dataset
-data['email_text'] = data['email_text'].str.lower()
-data['email_text'] = data['email_text'].str.replace(r'[^\w\s]', '', regex=True)
+vectorizer, model = mt.model_predict()
 
-# Split data
-X = data['email_text']
-y = data['label']  # Assuming 'label' column has 1 for spam, 0 for ham
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
-# Vectorize text
-vectorizer = TfidfVectorizer()
-X_train_vec = vectorizer.fit_transform(X_train)
-X_test_vec = vectorizer.transform(X_test)
+# Function to authenticate with Gmail API
+def authenticate_gmail():
+    creds = None
+    if os.path.exists('token.pickle'):
+        with open('token.pickle', 'rb') as token:
+            creds = pickle.load(token)
 
-# Train Naive Bayes model
-model = MultinomialNB()
-model.fit(X_train_vec, y_train)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'credentials.json', SCOPES)
+            creds = flow.run_local_server(port=0)
+        with open('token.pickle', 'wb') as token:
+            pickle.dump(creds, token)
 
-# Evaluate model
-y_pred = model.predict(X_test_vec)
-print(f"Accuracy: {accuracy_score(y_test, y_pred):.2f}")
+    service = build('gmail', 'v1', credentials=creds)
+    return service
 
-# Save the model and vectorizer
-with open('spam_model.pkl', 'wb') as model_file:
-    pickle.dump(model, model_file)
-with open('vectorizer.pkl', 'wb') as vec_file:
-    pickle.dump(vectorizer, vec_file)
+def extract_email_subject(message):
+    headers = message['payload']['headers']
+    for header in headers:
+        if header['name'] == 'Subject':
+            return header['value']
+    return "No Subject"
 
-# Load model and vectorizer in Flask
+
+# Function to extract the body of the email
+def extract_email_body(message, msg_id):
+    try:
+        # Extract email payload
+        payload = message['payload']
+        headers = payload.get('headers', [])
+        
+        # Find the subject
+        for header in headers:
+            if header['name'] == 'Subject':
+                print(f"\tSubject: {header['value']}")  # Debug: Subject line
+
+        # Extract email body
+        if 'parts' in payload:
+            for part in payload['parts']:
+                if part['mimeType'] == 'text/plain':
+                    return part['body']['data']
+        elif 'body' in payload:
+            return payload['body']['data']
+        
+        return "No body found."
+    except Exception as e:
+        print(f"Error extracting email body for message ID {msg_id}: {e}")
+        return "Error in extraction."
+
+
+# Function to forward the email content to your spam detector
+def forward_to_spam_detector(email_body):
+    # Here, call your spam detection model and forward the result
+    prediction = model.predict(vectorizer.transform([email_body]))
+    label = 'Spam' if prediction[0] == 1 else 'Not Spam'
+    print(f"\tPrediction: {label}")
+    return label
+
+# Flask app setup
 app = Flask(__name__)
-with open('spam_model.pkl', 'rb') as model_file:
-    model = pickle.load(model_file)
-with open('vectorizer.pkl', 'rb') as vec_file:
-    vectorizer = pickle.load(vec_file)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
 
 @app.route('/predict', methods=['POST'])
+# Function to list unread emails
 def predict():
-    data = request.get_json()
-    email_text = data.get('email_text', '')
+    service = authenticate_gmail()
+    try:
+        print("\nChecking for unread messages...\n")
+        results = service.users().messages().list(userId='me', labelIds=['INBOX'], q="is:unread").execute()
+        messages = results.get('messages', [])
+        
+        if not messages:
+            print("No unread messages found.\n")
+            return jsonify({'messages' : []})
 
-    # Preprocess and predict
-    email_vector = vectorizer.transform([email_text])
-    prediction = model.predict(email_vector)
-    label = 'spam' if prediction[0] == 1 else 'ham'
+        print(f"Found {len(messages)} unread message(s).") 
 
-    return jsonify({'label': label})
+        email_results = []
+        
+        for msg in messages:
+            msg_id = msg['id']
+            message = service.users().messages().get(userId='me', id=msg_id).execute()
+            print(f"Processing message...") 
+            
+            email_subject = extract_email_subject(message)
+            email_body = extract_email_body(message, msg_id)
+            
+            label = forward_to_spam_detector(email_body)
+            email_results.append({'subject':email_subject, 'label':label})
+            
+            # Mark the message as read
+            service.users().messages().modify(userId='me', id=msg_id, body={'removeLabelIds': ['UNREAD']}).execute()
+            print(f"Marked message as read.\n")  # Debug print
+        
+        return jsonify({'messages':email_results})
+
+    except Exception as e:
+        print(f"Error in list_emails: {e}")
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Load your model and vectorizer here (or from files)
+    with open('spam_model.pkl', 'rb') as model_file:
+        model = pickle.load(model_file)
+    with open('vectorizer.pkl', 'rb') as vec_file:
+        vectorizer = pickle.load(vec_file)
+
+    app.run(debug=False)

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spam Detector</title>
+    <script>
+        async function checkInbox() {
+            // Display loading message
+            const resultDiv = document.getElementById('results');
+            resultDiv.innerHTML = '<p>Checking for unread messages...</p>';
+
+            try {
+                // Make a POST request to check_inbox endpoint
+                const response = await fetch('/predict', { method: 'POST' });
+                const data = await response.json();
+
+                // Render messages
+                if (data.messages.length === 0) {
+                    resultDiv.innerHTML = '<p>No unread messages found.</p>';
+                } else {
+                    let output = `<p>Found ${data.messages.length} unread message(s):</p>`;
+                    data.messages.forEach(msg => {
+                        output += `
+                            <div style="margin-bottom: 1em;">
+                                <p><strong>Subject:</strong> ${msg.subject}</p>
+                                <p><strong>Prediction:</strong> ${msg.label}</p>
+                                <hr>
+                            </div>
+                        `;
+                    });
+                    resultDiv.innerHTML = output;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Spam Email Detector</h1>
+    <button onclick="checkInbox()">Check Inbox</button>
+    <div id="results" style="margin-top: 20px;"></div>
+</body>
+</html>
