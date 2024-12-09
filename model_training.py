@@ -47,7 +47,7 @@ def model_predict():
     print(confusion_matrix(y_test, y_pred))
     print("--------------------------------------------------------")
 
-    return model
+    return vectorizer, model
 
 def test_custom_input(model, vectorizer):
     while True:

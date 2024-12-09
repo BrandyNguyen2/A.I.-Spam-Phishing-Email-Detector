@@ -13,7 +13,7 @@ from flask import Flask, request, jsonify
 
 import model_training as mt
 
-model = mt.model_predict()
+vectorizer, model = mt.model_predict()
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
