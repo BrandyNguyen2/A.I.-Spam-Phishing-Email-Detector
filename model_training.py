@@ -1,50 +1,49 @@
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.utils import resample
 
 def model_predict():
     # 1. Load the dataset
     data = pd.read_csv('cleaned_fraud_dataset.csv')
 
-    # Check for missing values
-    print("Missing values in Text column:", data['Text'].isnull().sum())
+    # Check for missing values and fill them
+    data['Text'] = data['Text'].fillna('')
+    data['Class'] = data['Class'].fillna(0)
 
-    # Handle missing values
-    data['Text'] = data['Text'].fillna('')  # Replace NaN with empty string
-    data['Class'] = data['Class'].fillna(0)  # Ensure no missing labels
+    # 2. Handle data imbalance
+    spam = data[data['Class'] == 1]
+    not_spam = data[data['Class'] == 0]
+    spam_upsampled = resample(spam, 
+                              replace=True, 
+                              n_samples=len(not_spam), 
+                              random_state=42)
+    data = pd.concat([not_spam, spam_upsampled])
 
-    # 2. Convert labels to binary
-    data['Class'] = data['Class'].map({1: 1, 0: 0})  # Ensure labels are 0 or 1
+    # 3. Extract features and labels
     X = data['Text']
     y = data['Class']
 
-    # 3. Convert text to feature vectors
+    # 4. Vectorize the text data
     vectorizer = CountVectorizer(stop_words='english')
     X = vectorizer.fit_transform(X)
 
-    # 4. Split data into training and testing sets
+    # 5. Split the data
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    # 5. Train the Naive Bayes classifier
+    # 6. Train the model
     model = MultinomialNB()
     model.fit(X_train, y_train)
 
-    # 6. Predict on the test data
-    y_pred = model.predict(X_test)
-
     # 7. Evaluate the model
-    accuracy = accuracy_score(y_test, y_pred)
-    print()
-    print("Model Stats")
+    y_pred = model.predict(X_test)
+    print("\nModel Stats")
     print("--------------------------------------------------------")
-    print("Accuracy:", accuracy)
-    print("Classification Report:")
-    print(classification_report(y_test, y_pred))
-    print("Confusion Matrix:")
-    print(confusion_matrix(y_test, y_pred))
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("Classification Report:\n", classification_report(y_test, y_pred))
+    print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
     print("--------------------------------------------------------")
 
     return vectorizer, model
@@ -53,16 +52,7 @@ def test_custom_input(model, vectorizer):
     while True:
         user_input = input("Enter a message to classify (or type 'exit' to quit): ")
         if user_input.lower() == 'exit':
-            print("Exiting.")
             break
-        # Transform the user input using the fitted vectorizer
         input_vectorized = vectorizer.transform([user_input])
-        # Predict using the trained model
         prediction = model.predict(input_vectorized)
-        if prediction[0] == 1:
-            print("Prediciton: Not Spam")
-        else:
-            print("Prediction: Spam")
-
-# Call the function to test custom input
-#test_custom_input(model, vectorizer)
+        print("Prediction:", "Spam" if prediction[0] == 1 else "Not Spam")

@@ -1,17 +1,23 @@
-import os
+from flask import Flask, jsonify, render_template
 import pickle
-from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from flask import Flask, request, jsonify
-
+import os
+import base64
+from email import message_from_bytes
 import model_training as mt
 
-vectorizer, model = mt.model_predict()
+app = Flask(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
-# Function to authenticate with Gmail API
+# Load the model and vectorizer
+with open('spam_model.pkl', 'rb') as model_file:
+    model = pickle.load(model_file)
+with open('vectorizer.pkl', 'rb') as vec_file:
+    vectorizer = pickle.load(vec_file)
+
 def authenticate_gmail():
     creds = None
     if os.path.exists('token.pickle'):
@@ -31,93 +37,42 @@ def authenticate_gmail():
     service = build('gmail', 'v1', credentials=creds)
     return service
 
-# Function to extract the body of the email
-def extract_email_body(message, msg_id):
+def extract_email_body(message):
+    payload = message['payload']
+    body = ''
+    if 'parts' in payload:
+        for part in payload['parts']:
+            if part.get('mimeType') == 'text/plain':
+                body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+    elif 'body' in payload and 'data' in payload['body']:
+        body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
+    return body.strip()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/check_inbox', methods=['POST'])
+def check_inbox():
+    service = authenticate_gmail()
     try:
-        # Extract email payload
-        payload = message['payload']
-        headers = payload.get('headers', [])
-        
-        # Find the subject
-        for header in headers:
-            if header['name'] == 'Subject':
-                print(f"\tSubject: {header['value']}")  # Debug: Subject line
-
-        # Extract email body
-        if 'parts' in payload:
-            for part in payload['parts']:
-                if part['mimeType'] == 'text/plain':
-                    return part['body']['data']
-        elif 'body' in payload:
-            return payload['body']['data']
-        
-        return "No body found."
-    except Exception as e:
-        print(f"Error extracting email body for message ID {msg_id}: {e}")
-        return "Error in extraction."
-
-
-# Function to forward the email content to your spam detector
-def forward_to_spam_detector(email_body):
-    # Here, call your spam detection model and forward the result
-    prediction = model.predict(vectorizer.transform([email_body]))
-    label = 'Spam' if prediction[0] == 1 else 'Not Spam'
-    print(f"\tPrediction: {label}")
-    return label
-
-# Function to list unread emails
-def list_emails(service):
-    try:
-        print("\nChecking for unread messages...\n")
         results = service.users().messages().list(userId='me', labelIds=['INBOX'], q="is:unread").execute()
         messages = results.get('messages', [])
         
-        if not messages:
-            print("No unread messages found.\n")
-            return
-
-        print(f"Found {len(messages)} unread message(s).") 
-        
+        response = {'messages': []}
         for msg in messages:
             msg_id = msg['id']
             message = service.users().messages().get(userId='me', id=msg_id).execute()
-            print(f"Processing message...") 
-            
-            email_body = extract_email_body(message, msg_id)
-            
-            forward_to_spam_detector(email_body)
-            
-            # Mark the message as read
+            subject = next((header['value'] for header in message['payload']['headers'] if header['name'] == 'Subject'), 'No Subject')
+            email_body = extract_email_body(message)
+            prediction = model.predict(vectorizer.transform([email_body]))[0]
+            label = 'Spam' if prediction == 1 else 'Not Spam'
+            response['messages'].append({'subject': subject, 'prediction': label})
             service.users().messages().modify(userId='me', id=msg_id, body={'removeLabelIds': ['UNREAD']}).execute()
-            print(f"Marked message as read.\n")  # Debug print
 
+        return jsonify(response)
     except Exception as e:
-        print(f"Error in list_emails: {e}")
-
-# Flask app setup
-app = Flask(__name__)
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    data = request.get_json()
-    email_text = data.get('email_text', '')
-    
-    # Use your model to predict
-    email_vector = vectorizer.transform([email_text])
-    prediction = model.predict(email_vector)
-    label = 'spam' if prediction[0] == 1 else 'ham'
-    
-    return jsonify({'label': label})
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # Load your model and vectorizer here (or from files)
-    with open('spam_model.pkl', 'rb') as model_file:
-        model = pickle.load(model_file)
-    with open('vectorizer.pkl', 'rb') as vec_file:
-        vectorizer = pickle.load(vec_file)
-
-    # Authenticate and list emails in a separate thread if needed for background processing
-    service = authenticate_gmail()
-    list_emails(service)  # Or call this periodically as needed
-
-    app.run(debug=False)
+    app.run(debug=True)
