@@ -1,0 +1,6 @@
+__pycache__/
+sklearn-env/
+token.pickle
+credentials.json
+spam_model.pkl
+vectorizer.pkl
