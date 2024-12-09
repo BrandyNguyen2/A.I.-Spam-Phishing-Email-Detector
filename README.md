@@ -13,3 +13,5 @@ Coded by: Amanda Shohdy, Luke Piña, Tasin Noor, & Brandy Nguyen
 1. git clone repo
 2. Ensure you have the packages already downloaded
 3. Enter in the terminal "python ./main.py" or "python3 ./main.py" to see model accurarcy
+
+github repo: https://github.com/BrandyNguyen2/A.I.-Spam-Phishing-Email-Detector.git
