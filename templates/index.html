@@ -12,7 +12,7 @@
 
             try {
                 // Make a POST request to check_inbox endpoint
-                const response = await fetch('/check_inbox', { method: 'POST' });
+                const response = await fetch('/predict', { method: 'POST' });
                 const data = await response.json();
 
                 // Render messages
@@ -24,7 +24,7 @@
                         output += `
                             <div style="margin-bottom: 1em;">
                                 <p><strong>Subject:</strong> ${msg.subject}</p>
-                                <p><strong>Prediction:</strong> ${msg.prediction}</p>
+                                <p><strong>Prediction:</strong> ${msg.label}</p>
                                 <hr>
                             </div>
                         `;
