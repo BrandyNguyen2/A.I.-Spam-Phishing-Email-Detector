@@ -3,7 +3,7 @@
 Coded by: Amanda Shohdy, Luke Piña, Tasin Noor, & Brandy Nguyen
 
 # Description:
-This repository is an AI model that is able to detect spam in your email inbox. It utilizes Google's email API in order to read from a user's Gmail inbox. After connecting your Gmail account to the code, you will be able to run the code locally on your machine.  
+This repository is an AI model that is able to detect spam in your email inbox. It utilizes Google's email API in order to read from a user's Gmail inbox. After connecting your Gmail account to the code, you can run the code locally on your machine. The spam detector will give you a result page determining if it was spam or not, and then mark the emails as read. 
 
 # Installing packages:
 - How to install scikit-learn & pandas
