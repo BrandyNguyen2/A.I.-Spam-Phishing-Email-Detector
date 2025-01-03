@@ -25,6 +25,8 @@ This repository is an AI model that is able to detect spam in your email inbox. 
 - https://scikit-learn.org/dev/
 - https://scikit-learn.org/1.5/modules/naive_bayes.html
 
-GitHub repo: https://github.com/BrandyNguyen2/A.I.-Spam-Phishing-Email-Detector.git
+# Demo Video:
+![demo_vid](Fraud_Detection_Screen_Recording.mp4)
 
 ![result_image](result_image.png)
+
