@@ -27,6 +27,7 @@ This repository is an AI model that is able to detect spam in your email inbox. 
 
 # Demo Video:
 ![demo_vid](Fraud_Detection_Screen_Recording.mp4)
+https://github.com/user-attachments/assets/1cfecb68-d561-4e27-85e5-1beca3bae65d
 
 ![result_image](result_image.png)
 
